@@ -1,0 +1,12 @@
+# gitleaks settings for the security-checks workflow.
+# Keep every default rule, and ignore only what is fake on purpose:
+#  - tests/*.test.js log in throw-away accounts (alice@, bob@, mona@example.com) with made-up passwords;
+#  - the deploy checklist shows a placeholder admin password the reader must replace.
+# Any other match still fails the build.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Throw-away test accounts and documentation placeholders"
+paths = ['''^tests/[a-z-]+\.test\.js$''']
+regexes = ['''ChooseYourOwn123''', '''<your-own-password>''']

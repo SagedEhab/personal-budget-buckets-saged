@@ -1,0 +1,5 @@
+# Store and check out text files with LF so the bash scripts run on every laptop (Windows included)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.zip binary
