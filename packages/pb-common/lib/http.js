@@ -55,12 +55,22 @@ function createApp({ service, logger, mount }) {
   // JSON bodies only, max 20 KB (protects the Lambda from oversized payloads)
   app.use(express.json({ limit: '20kb' }));
 
-  // Lab 7 fix: some API Gateway emulators give Lambda the body as a Buffer or base64 text
+  // Lab 7 fix: some API Gateway emulators give Lambda the body as a Buffer or base64 text.
+  // On Lambda, serverless-http has already read the body, so express.json above skips it: the 20 KB
+  // limit and the JSON-only rule must be applied here too (found by Salma's test ST-11 on Floci:
+  // a 30 KB body was accepted and text/plain got 400 instead of 415).
   app.use((req, res, next) => {
     if (Buffer.isBuffer(req.body) || typeof req.body === 'string') {
-      const text = req.body.toString('utf8').trim();
+      const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body);
+      if (raw.length && !req.is('application/json')) {
+        return next(new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type must be application/json.'));
+      }
+      const text = raw.toString('utf8').trim();
       const decoded = /^[A-Za-z0-9+/=\s]+$/.test(text) && !text.startsWith('{')
         ? Buffer.from(text, 'base64').toString('utf8') : text;
+      if (Buffer.byteLength(decoded) > 20 * 1024) {
+        return next(new ApiError(413, 'PAYLOAD_TOO_LARGE', 'Request body is too large.'));
+      }
       try {
         req.body = decoded ? JSON.parse(decoded) : {};
       } catch {

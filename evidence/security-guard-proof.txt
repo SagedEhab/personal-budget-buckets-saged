@@ -1,0 +1,30 @@
+Security guard proof (2026-11-28T15:00:38Z) on Floci. Target: pb-reports-244694 (private reports bucket)
+1. Before: the secure baseline
+  Block Public Access: True/True/True/True
+  bucket policy:       none
+  public ACL grants:   
+  default encryption:  aws:kms
+2. Simulated misconfiguration (what a careless change or an attacker would do):
+  - delete Block Public Access
+  - add a policy that lets anyone read every file
+  - try a public-read ACL: refused by S3 (ACLs are disabled on this bucket), so G3 cannot drift here; G3 is covered by unit test SG-04
+  - remove the KMS default encryption (S3 falls back to AES256)
+  Block Public Access: 
+aws: [ERROR]: An error occurred (NoSuchPublicAccessBlockConfiguration) when calling the GetPublicAccessBlock operation: The public access block configuration was not found
+  bucket policy:       {"Version":"2012-10-17","Statement":[{"Sid":"MadePublic","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::pb-reports-244694/*"}]}
+  public ACL grants:   
+  default encryption:  AES256
+3. The guard runs (the same code the 5-minute schedule runs; invoked now so we do not wait):
+  result: fixed 2, need a person 1, buckets checked 3, roles checked 9, errors 0
+   [G1] pb-reports-244694: Block Public Access off: BlockPublicAcls, IgnorePublicAcls, BlockPublicPolicy, RestrictPublicBuckets -> FIXED: all 4 settings turned back on
+   [G2] pb-reports-244694: bucket policy allows everyone (MadePublic) -> FIXED: policy deleted (it only had public statements)
+   [G4] pb-reports-244694: default encryption downgraded to AES256 (should use its KMS key) -> alert: the owner must put the bucket's KMS key back
+4. After the guard run
+  Block Public Access: True/True/True/True
+  bucket policy:       none
+  public ACL grants:   
+  default encryption:  AES256
+5. Team alerted on pb-ops-alarms:
+  subject: Security guard: 2 fixed, 1 need a person
+6. Owner's follow-up from the alert: KMS default encryption put back -> aws:kms
+RESULT: PASS (Block Public Access and the public policy repaired automatically, the KMS downgrade flagged, alert delivered)

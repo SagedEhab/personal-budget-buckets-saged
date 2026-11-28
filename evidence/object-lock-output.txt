@@ -1,0 +1,6 @@
+Audit log bucket (private, encrypted, versioned)
+  s3://pb-audit-logs-244694
+  Object Lock: GOVERNANCE, 1 day(s) per log file
+  proof: deleting a locked log file -> AccessDenied (PASS)
+CloudTrail: all regions, management events, log-file validation
+  pb-trail logging: True

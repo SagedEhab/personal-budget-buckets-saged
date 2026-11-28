@@ -1,0 +1,52 @@
+{
+  "suite": "buckets-integration",
+  "ranAt": "2026-11-28T15:11:22.828Z",
+  "node": "v24.15.0",
+  "rows": [
+    {
+      "id": "IT-02",
+      "area": "Buckets",
+      "scenario": "Create Food 1000, Fun 2000, Transport 300 (hard limit); duplicate \"food\"; name \"X\" with limit -5",
+      "expected": "201 ×3; dup 409 BUCKET_NAME_TAKEN; invalid 400",
+      "actual": "201, 201, 201; dup 409 BUCKET_NAME_TAKEN; invalid 400 VALIDATION_ERROR",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "IT-03",
+      "area": "Transactions → Buckets",
+      "scenario": "Log 850 EGP in Food (limit 1000, alert 80%); log an expense dated 2099",
+      "expected": "201 NEAR_LIMIT + 1 alert; future 400",
+      "actual": "201 state=NEAR_LIMIT alertRaised=true; alerts=NEAR_LIMIT; future 400 VALIDATION_ERROR",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "IT-05",
+      "area": "Transactions → Buckets",
+      "scenario": "Transport (hard limit 300): 250 then 100",
+      "expected": "201; 422 BUDGET_HARD_LIMIT, nothing saved",
+      "actual": "201; then 422 BUDGET_HARD_LIMIT; transactions in bucket = 1",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "IT-06",
+      "area": "Buckets",
+      "scenario": "Move 200 from Fun to Food; then move 100000",
+      "expected": "201, Food limit 1200; 422 INSUFFICIENT_BUDGET",
+      "actual": "201; Food effectiveLimit=1200 state=OK; Fun had 2000 left; 100000 → 422 INSUFFICIENT_BUDGET",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "IT-07",
+      "area": "Buckets ↔ Transactions",
+      "scenario": "Delete Fun (has transactions), archive it, log expense into it; delete an empty bucket",
+      "expected": "409 BUCKET_HAS_TRANSACTIONS; 200 archived; 409 BUCKET_ARCHIVED; 204",
+      "actual": "409 BUCKET_HAS_TRANSACTIONS; archive 200 status=archived; expense 409 BUCKET_ARCHIVED; empty bucket delete 204",
+      "pass": true,
+      "evidence": ""
+    }
+  ]
+}

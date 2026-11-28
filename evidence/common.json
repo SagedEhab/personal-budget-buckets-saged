@@ -1,0 +1,25 @@
+{
+  "suite": "common",
+  "ranAt": "2026-11-28T15:11:24.484Z",
+  "node": "v24.15.0",
+  "rows": [
+    {
+      "id": "UT-09",
+      "area": "Shared auth",
+      "scenario": "valid / alg none / role changed / expired",
+      "expected": "true, bad_algorithm, bad_signature, expired",
+      "actual": "true, bad_algorithm, bad_signature, expired",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-10",
+      "area": "Shared",
+      "scenario": "mass assignment: extra field \"role\"",
+      "expected": "400 role is not an allowed field.",
+      "actual": "400 role is not an allowed field.",
+      "pass": true,
+      "evidence": ""
+    }
+  ]
+}

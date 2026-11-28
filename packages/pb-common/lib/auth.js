@@ -11,7 +11,7 @@
 //   Normal routes reuse an answer for up to 60 s; admin routes always ask again.
 //   If the check cannot be made, the request is refused (fail closed), never let through.
 const jwt = require('./jwt');
-const { getJwtSecret } = require('./secrets');
+const { getJwtSecret, getJwtSecrets, refreshAllowed } = require('./secrets');
 const { errors } = require('./errors');
 const { callService } = require('./serviceClient');
 
@@ -63,8 +63,7 @@ function createAuth(logger, { lookupUser = lookupViaAuthService, cache: useCache
         logger.warn('AUTH_TOKEN_MISSING', { requestId: req.requestId, path: req.path, ip: req.ip });
         throw errors.unauthorized();
       }
-      const secret = await getJwtSecret();
-      const result = jwt.verify(match[1], secret, { issuer: ISSUER, audience: AUDIENCE });
+      const result = await verifyWithRotation(match[1]);
       if (!result.ok) {
         logger.warn('AUTH_TOKEN_REJECTED', { requestId: req.requestId, path: req.path, reason: result.reason, ip: req.ip });
         throw errors.unauthorized(result.reason === 'expired' ? 'Session expired. Please log in again.' : 'Invalid authentication token.');
@@ -100,6 +99,21 @@ function createAuth(logger, { lookupUser = lookupViaAuthService, cache: useCache
   }
 
   return { requireAuth, requireRole };
+}
+
+// Verify with the current key, then the previous one (tokens signed before a key rotation stay valid
+// until they expire). If neither matches, the keys may have just been rotated: reload them once.
+async function verifyWithRotation(token) {
+  const opts = { issuer: ISSUER, audience: AUDIENCE };
+  const attempt = async () => {
+    const { current, previous } = await getJwtSecrets();
+    let result = jwt.verify(token, current, opts);
+    if (result.reason === 'bad_signature' && previous) result = jwt.verify(token, previous, opts);
+    return result;
+  };
+  let result = await attempt();
+  if (result.reason === 'bad_signature' && refreshAllowed()) result = await attempt();
+  return result;
 }
 
 async function issueToken(user, { expiresInSec = 3600 } = {}) {

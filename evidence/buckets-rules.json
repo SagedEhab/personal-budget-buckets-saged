@@ -1,0 +1,61 @@
+{
+  "suite": "buckets-rules",
+  "ranAt": "2026-11-28T15:11:23.030Z",
+  "node": "v24.15.0",
+  "rows": [
+    {
+      "id": "UT-01",
+      "area": "Buckets",
+      "scenario": "effectiveLimit = 1000 + 200 in - 50 out, spent 500",
+      "expected": "1150, OK",
+      "actual": "1150, OK",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-02",
+      "area": "Buckets",
+      "scenario": "rollover of 1700 unused is capped at 1000",
+      "expected": "rolloverIn 1000",
+      "actual": "rolloverIn 1000",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-03",
+      "area": "Buckets",
+      "scenario": "bucket created this month gets no rollover",
+      "expected": "rolloverIn 0",
+      "actual": "rolloverIn 0",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-04",
+      "area": "Buckets",
+      "scenario": "states at 79%, 80%, 100%, >100%",
+      "expected": "OK, NEAR_LIMIT, NEAR_LIMIT, OVER_LIMIT",
+      "actual": "OK, NEAR_LIMIT, NEAR_LIMIT, OVER_LIMIT",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-05",
+      "area": "Buckets",
+      "scenario": "hard limit: +150 on 900/1000 blocked; editing a 100 expense to 150 allowed",
+      "expected": "false, true",
+      "actual": "false, true",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "UT-06",
+      "area": "Buckets",
+      "scenario": "too much / past month / same bucket / valid",
+      "expected": "INSUFFICIENT_BUDGET, PAST_MONTH, SAME_BUCKET, null",
+      "actual": "INSUFFICIENT_BUDGET, PAST_MONTH, SAME_BUCKET, ",
+      "pass": true,
+      "evidence": ""
+    }
+  ]
+}

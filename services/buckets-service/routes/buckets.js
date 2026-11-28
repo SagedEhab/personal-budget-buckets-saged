@@ -215,6 +215,34 @@ function createBucketRoutes(logger) {
     res.status(201).json(publicBucket(transfer));
   }));
 
+  // ----- privacy rights (ENHANCEMENTS 5f, Egypt PDPL 151/2020: access and erasure) -----
+  // Only the caller's own partition (USER#<their id>) is read or deleted: the key design makes it
+  // impossible to reach another user's data. The Auth service calls both with the user's token
+  // when the user asks to download their data or delete their account.
+  const EXPORT_KIND = { BUCKET: 'buckets', TRANSFER: 'transfers', ALERT: 'alerts' };
+
+  router.get('/me/export', wrap(async (req, res) => {
+    const items = await store.query(userPk(req));
+    const data = { buckets: [], transfers: [], alerts: [] };
+    for (const item of items) {
+      const kind = EXPORT_KIND[item.sk.split('#')[0]];
+      if (kind) data[kind].push(publicBucket(item));   // ALERTKEY markers are internal: not personal data
+    }
+    logger.info('DATA_EXPORTED', { requestId: req.requestId, userId: req.user.id, items: items.length });
+    res.set('Content-Disposition', 'attachment; filename="my-buckets-data.json"');
+    res.status(200).json({ service: 'buckets', userId: req.user.id, exportedAt: new Date().toISOString(), ...data });
+  }));
+
+  router.delete('/me', wrap(async (req, res) => {
+    // Same contract as Transactions and Insights: the Auth service sends {"confirm": true} to every service
+    const { confirm } = validate(req.body || {}, { confirm: { type: 'boolean', required: true } });
+    if (confirm !== true) throw errors.badRequest('Send {"confirm": true} to delete all your buckets data.');
+    const items = await store.query(userPk(req));
+    for (const item of items) await store.remove(item.pk, item.sk);
+    logger.info('DATA_ERASED', { requestId: req.requestId, userId: req.user.id, items: items.length });
+    res.status(200).json({ service: 'buckets', deleted: items.length });
+  }));
+
   // ----- buckets -----
   // List buckets with their live budget status for a month (default: this month)
   router.get('/', wrap(async (req, res) => {
@@ -320,6 +348,25 @@ function createBucketRoutes(logger) {
     res.status(200).json(publicBucket(updated));
   }));
 
+  // Hard-limit lock (attack pack AT-05): with a hard limit, two expenses sent at the same moment both
+  // saw the old total and both passed (10 x 30 on a limit of 100 → 300 spent). Now check-spend takes a
+  // short lock on the bucket, and evaluate (called after the expense is saved) releases it, so the next
+  // expense sees the new total. The lock expires by itself if the Transactions service stops half-way.
+  const SPEND_LOCK_MS = 5000;
+  const SPEND_LOCK_WAIT_MS = 8000;
+  const spendLockKey = (bucketId) => `SPENDLOCK#${bucketId}`;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function takeSpendLock(req, bucketId) {
+    const deadline = Date.now() + SPEND_LOCK_WAIT_MS;
+    let wait = 20;
+    while (Date.now() < deadline) {
+      if (await store.acquireLock(userPk(req), spendLockKey(bucketId), req.requestId, SPEND_LOCK_MS)) return true;
+      await sleep(wait + Math.floor(Math.random() * wait));
+      wait = Math.min(wait * 2, 250);
+    }
+    return false;
+  }
+
   // Called by the Transactions service BEFORE saving an expense
   router.post('/:id/check-spend', wrap(async (req, res) => {
     const bucket = await loadBucket(req, req.params.id);
@@ -327,10 +374,15 @@ function createBucketRoutes(logger) {
     const input = validate(req.body, checkSpendSchema);
     const day = parseDay(input.date);
     const month = day.slice(0, 7);
+    if (bucket.hardLimit && !(await takeSpendLock(req, bucket.id))) {
+      logger.warn('SPEND_LOCK_BUSY', { requestId: req.requestId, userId: req.user.id, bucketId: bucket.id });
+      throw errors.conflict('BUCKET_BUSY', 'Another expense for this bucket is being saved. Please try again.');
+    }
     const [item] = await statusFor(req, [bucket], month);
     const projection = projectSpend(bucket, item.budget, input.amount, input.replacingAmount);
     if (!projection.allowed) {
       logger.warn('SPEND_BLOCKED_HARD_LIMIT', { requestId: req.requestId, userId: req.user.id, bucketId: bucket.id, month });
+      if (bucket.hardLimit) await store.releaseLock(userPk(req), spendLockKey(bucket.id), req.requestId);
     }
     res.status(200).json({ bucket: { id: bucket.id, name: bucket.name, hardLimit: bucket.hardLimit }, month, ...projection });
   }));
@@ -341,6 +393,8 @@ function createBucketRoutes(logger) {
     const { month } = validate(req.body, {
       month: { type: 'string', required: true, pattern: /^\d{4}-(0[1-9]|1[0-2])$/ }
     });
+    // The expense is saved now: let the next expense for this bucket through (only the holder can release)
+    if (bucket.hardLimit) await store.releaseLock(userPk(req), spendLockKey(bucket.id), req.requestId);
     const [item] = await statusFor(req, [bucket], month);
     const alert = bucket.status === 'active' ? await alerts.raiseIfNeeded(req.user.id, bucket, item.budget, req.requestId) : null;
     res.status(200).json({ budget: item.budget, alertRaised: Boolean(alert), alert: alert ? publicBucket(alert) : null });

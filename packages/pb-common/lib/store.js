@@ -99,6 +99,58 @@ function createDynamoStore(table) {
       const r = await db.send(new DeleteCommand({ TableName: table, Key: { pk, sk }, ReturnValues: 'ALL_OLD' }));
       return r.Attributes || null;
     },
+    // Atomically counts one more attempt, but only while fewer than `max` are counted and the item is
+    // not locked. Returns the new count, or null when no attempt is left. One DynamoDB write with a
+    // condition, so parallel requests cannot all read the same old count (attack pack AT-06).
+    async takeAttempt(pk, sk, { counter, lockField, max, now }) {
+      try {
+        const r = await db.send(new UpdateCommand({
+          TableName: table,
+          Key: { pk, sk },
+          UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :one',
+          ConditionExpression: 'attribute_exists(pk) AND (attribute_not_exists(#c) OR #c < :max)'
+            + ' AND (attribute_not_exists(#l) OR attribute_type(#l, :nul) OR #l <= :now)',
+          ExpressionAttributeNames: { '#c': counter, '#l': lockField },
+          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':max': max, ':nul': 'NULL', ':now': now },
+          ReturnValues: 'UPDATED_NEW'
+        }));
+        return r.Attributes[counter];
+      } catch (error) {
+        if (error.name === 'ConditionalCheckFailedException') return null;
+        throw error;
+      }
+    },
+    // Short mutual-exclusion lock with an expiry (attack pack AT-05). Returns true if `owner` got it.
+    async acquireLock(pk, sk, owner, ttlMs) {
+      const now = Date.now();
+      try {
+        await db.send(new PutCommand({
+          TableName: table,
+          Item: { pk, sk, owner, expiresAt: now + ttlMs },
+          ConditionExpression: 'attribute_not_exists(pk) OR expiresAt < :now OR #o = :owner',
+          ExpressionAttributeNames: { '#o': 'owner' },
+          ExpressionAttributeValues: { ':now': now, ':owner': owner }
+        }));
+        return true;
+      } catch (error) {
+        if (error.name === 'ConditionalCheckFailedException') return false;
+        throw error;
+      }
+    },
+    async releaseLock(pk, sk, owner) {
+      try {
+        await db.send(new DeleteCommand({
+          TableName: table, Key: { pk, sk },
+          ConditionExpression: '#o = :owner',
+          ExpressionAttributeNames: { '#o': 'owner' },
+          ExpressionAttributeValues: { ':owner': owner }
+        }));
+        return true;
+      } catch (error) {
+        if (error.name === 'ConditionalCheckFailedException') return false;
+        throw error;
+      }
+    },
     // Admin statistics only (Scan reads the whole table: acceptable at coursework scale).
     async scan({ prefix } = {}) {
       const items = [];
@@ -170,6 +222,32 @@ function createMemoryStore(name, file) {
     },
     async scan({ prefix } = {}) {
       return [...data.values()].filter((i) => !prefix || i.sk.startsWith(prefix)).map(copy);
+    },
+    // Same behaviour as the DynamoDB versions (JavaScript runs these without a pause, so they are atomic)
+    async takeAttempt(pk, sk, { counter, lockField, max, now }) {
+      const existing = data.get(key(pk, sk));
+      if (!existing) return null;
+      const count = existing[counter] || 0;
+      if (count >= max) return null;
+      if (existing[lockField] && existing[lockField] > now) return null;
+      existing[counter] = count + 1;
+      save();
+      return existing[counter];
+    },
+    async acquireLock(pk, sk, owner, ttlMs) {
+      const now = Date.now();
+      const existing = data.get(key(pk, sk));
+      if (existing && existing.expiresAt >= now && existing.owner !== owner) return false;
+      data.set(key(pk, sk), { pk, sk, owner, expiresAt: now + ttlMs });
+      save();
+      return true;
+    },
+    async releaseLock(pk, sk, owner) {
+      const existing = data.get(key(pk, sk));
+      if (!existing || existing.owner !== owner) return false;
+      data.delete(key(pk, sk));
+      save();
+      return true;
     },
     _clear() { data.clear(); save(); }
   };

@@ -1,0 +1,29 @@
+# DevSecOps (Lecture 9): every push and pull request runs the tests, a dependency scan and a
+# secret scan, so a pull request shows a red cross before anything broken or leaked is merged.
+# Owner: Saged. CodeQL runs separately (codeql.yml); Dependabot keeps these actions up to date.
+name: security-checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read            # least privilege for the pipeline itself
+jobs:
+  test-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history, so the secret scan also checks old commits
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install each service
+        run: for s in services/*-service; do (cd "$s" && npm ci --no-audit --no-fund); done
+      - name: Unit, integration, security and Lambda tests (no AWS or internet needed)
+        run: npm test
+      - name: Dependency scan (fails on high/critical)
+        run: npm run audit
+      - name: Secret scan (gitleaks, uses .gitleaks.toml)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

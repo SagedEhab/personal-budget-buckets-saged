@@ -19,6 +19,16 @@
       "Resource": "arn:aws:secretsmanager:__REGION__:__ACCOUNT__:secret:pb/jwt-secret*"
     },
     {
+      "Sid": "PrivacyFlowCallsOtherServices",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": [
+        "arn:aws:lambda:__REGION__:__ACCOUNT__:function:pb-buckets-api",
+        "arn:aws:lambda:__REGION__:__ACCOUNT__:function:pb-transactions-api",
+        "arn:aws:lambda:__REGION__:__ACCOUNT__:function:pb-insights-api"
+      ]
+    },
+    {
       "Effect": "Allow",
       "Action": [
         "logs:CreateLogGroup",
@@ -26,6 +36,27 @@
         "logs:PutLogEvents"
       ],
       "Resource": "arn:aws:logs:__REGION__:__ACCOUNT__:log-group:/aws/lambda/pb-auth-api:*"
+    },
+    {
+      "Sid": "UseDataKeyViaServicesOnly",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:__REGION__:__ACCOUNT__:key/*",
+      "Condition": {
+        "ForAnyValue:StringEquals": {
+          "kms:ResourceAliases": "alias/pb-data-key"
+        },
+        "StringEquals": {
+          "kms:ViaService": [
+            "dynamodb.__REGION__.amazonaws.com",
+            "secretsmanager.__REGION__.amazonaws.com"
+          ]
+        }
+      }
     }
   ]
 }

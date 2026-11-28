@@ -1,0 +1,7 @@
+[17:22:37] Restore drill on PBBuckets (point-in-time recovery: ENABLED)
+[17:22:43] 1. Wrote a test record: "restore drill record"
+[17:22:53] 2. Deleted it by 'accident'. Live table now returns: None
+[17:23:02] 3. Rewound PBBuckets to 2026-11-26T17:22:45Z into PBBuckets-drill-1795713754: record is back: "restore drill record"
+[17:23:11] 4. Copied it back into the live table: "restore drill record"
+[17:23:17] 5. Cleaned up (test record and the restored copy removed).
+RESULT: PASS, deleted data recovered with point-in-time recovery.

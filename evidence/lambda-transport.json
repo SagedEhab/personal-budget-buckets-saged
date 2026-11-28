@@ -1,0 +1,34 @@
+{
+  "suite": "lambda-transport",
+  "ranAt": "2026-11-28T15:11:25.618Z",
+  "node": "v24.15.0",
+  "rows": [
+    {
+      "id": "LT-01",
+      "area": "Lambda packaging",
+      "scenario": "Invoke each handler with a v2 health event",
+      "expected": "200 runtime=lambda ×4",
+      "actual": "auth:200:lambda, buckets:200:lambda, transactions:200:lambda, insights:200:lambda",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "LT-02",
+      "area": "Integration (Lambda Invoke)",
+      "scenario": "Register → bucket → expense → dashboard with SERVICE_TRANSPORT=lambda",
+      "expected": "expense 201 NEAR_LIMIT; dashboard 450; cross-function invokes happen",
+      "actual": "register 201, bucket 201, expense 201 state=NEAR_LIMIT, dashboard 200 expense=450; 10 invokes: buckets→pb-auth-api, transactions→pb-auth-api, transactions→pb-buckets-api, buckets→pb-transactions-api, insights→pb-auth-api, insights→pb-transactions-api, insights→pb-buckets-api",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "LT-03",
+      "area": "Security (Lambda body rules)",
+      "scenario": "POST a 30 KB JSON body and a text/plain body to the Buckets handler, plain and base64",
+      "expected": "big 413, text 415 in both forms",
+      "actual": "big 413, bigBase64 413, text 415, textBase64 415",
+      "pass": true,
+      "evidence": ""
+    }
+  ]
+}

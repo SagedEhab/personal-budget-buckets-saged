@@ -43,6 +43,26 @@
         "logs:PutLogEvents"
       ],
       "Resource": "arn:aws:logs:__REGION__:__ACCOUNT__:log-group:/aws/lambda/pb-transactions-api:*"
+    },
+    {
+      "Sid": "UseDataKeyViaServicesOnly",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:__REGION__:__ACCOUNT__:key/*",
+      "Condition": {
+        "ForAnyValue:StringEquals": {
+          "kms:ResourceAliases": "alias/pb-data-key"
+        },
+        "StringEquals": {
+          "kms:ViaService": [
+            "secretsmanager.__REGION__.amazonaws.com"
+          ]
+        }
+      }
     }
   ]
 }

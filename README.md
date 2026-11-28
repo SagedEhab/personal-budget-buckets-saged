@@ -53,6 +53,27 @@ I also own the infrastructure for the whole team:
 - `infra/monitoring/setup-monitoring.sh`: CloudWatch metric filters and alarms
 - `packages/pb-common/`: shared auth middleware, validation, logging and data store
 
+## Security and platform enhancements (26–28 Nov)
+
+All deployed and tested on Floci; the proof of each run is in `evidence/`.
+
+| Enhancement | Files | Proof |
+|---|---|---|
+| KMS customer-managed key (tables, buckets, secret, topics, logs) | `infra/security/setup-kms.sh` | app works after the switch |
+| JWT signing-key rotation every 30 days (+ emergency rotation) | `infra/security/setup-rotation.sh`, `infra/security/jwt-rotator/` | `evidence/jwt-rotation-drill.txt`, `jwt-emergency-rotation.txt` |
+| Backups: DynamoDB point-in-time recovery + AWS Backup, restore drill | `infra/security/setup-backups.sh`, `infra/restore-drill.sh` | `evidence/restore-drill-output.txt` |
+| Audit trail: CloudTrail, GuardDuty, Security Hub, Config; tamper-proof logs (S3 Object Lock) | `infra/security/setup-audit.sh` | `evidence/object-lock-output.txt` |
+| Security alerts with EventBridge → SNS | `infra/security/setup-alerts.sh` | `evidence/security-alerts-output.txt` |
+| WAF web ACL (rate limit + AWS managed rules) | `infra/security/setup-waf.sh` | `evidence/waf-output.txt` |
+| Self-healing security guard (repairs public S3 settings every 5 min) | `infra/security/security-guard/`, `infra/security/setup-guard.sh` | `evidence/security-guard-proof.txt`, tests SG-01..07 |
+| Ownership-probe (IDOR) alarm | `infra/monitoring/setup-monitoring.sh --prove` | `evidence/ownership-probe-alarm-proof.txt` |
+| Attack pack: 12 attacks on the live deployment, 2 race conditions fixed | `tests/security/attack-pack.mjs`, `tests/attack-races.test.js` | `evidence/attack-pack.md`, `docs/PENTEST-REPORT.md` |
+| CI: tests, gitleaks, npm audit, CodeQL, Dependabot | `ci-config/` (copies; they run in the team repo's `.github/`) | GitHub Actions in the team repo |
+
+Tests in `tests/` are mine (Buckets rules, security, integration, races, shared library, Lambda transport, guard).
+Most need the whole team app, so run them in the team repository with `npm test`. The guard tests run on
+their own: `node --test tests/security-guard.test.js`.
+
 ## Run my service on a PC
 
 ```bash

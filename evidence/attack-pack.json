@@ -1,0 +1,125 @@
+{
+  "api": "http://7a84593305.execute-api.localhost.floci.io:4566",
+  "ranAt": "2026-11-27T23:12:38.173Z",
+  "passed": 12,
+  "total": 12,
+  "results": [
+    {
+      "id": "AT-01",
+      "category": "Broken access control (IDOR)",
+      "attack": "Attacker B sends 13 requests with victim A's bucket, transaction and report ids across Buckets, Transactions and Insights",
+      "expected": "every request refused (404/403/4xx), A's data unchanged",
+      "actual": "13/13 refused; A's data unchanged",
+      "pass": true,
+      "note": "GET /api/buckets/<A-id> → 404; PATCH /api/buckets/<A-id> → 404; DELETE /api/buckets/<A-id> → 404; POST /api/buckets/<A-id>/archive → 404; POST /api/buckets/<A-id>/check-spend → 404; POST /api/buckets/transfers → 400; GET /api/transactions/<A-id> → 404; PATCH /api/transactions/<A-id> → 404; DELETE /api/transactions/<A-id> → 404; GET /api/transactions/<A-id>/receipt → 404; POST /api/transactions → 400; GET /api/insights/reports/<A-id>/download → 404; DELETE /api/insights/reports/<A-id> → 404"
+    },
+    {
+      "id": "AT-02",
+      "category": "Authentication (token forgery)",
+      "attack": "15 forged or misplaced tokens claiming to be victim A as admin",
+      "expected": "all 401",
+      "actual": "15/15 got 401",
+      "pass": true,
+      "note": "HS256 signed with guessed key \"secret\" → 401; HS256 signed with guessed key \"changeme\" → 401; HS256 signed with guessed key \"password\" → 401; HS256 signed with guessed key \"jwt-secret\" → 401; HS256 signed with guessed key \"pb-jwt-secret\" → 401; HS256 signed with guessed key \"personal-budget-buckets\" → 401; HS256 signed with guessed key \"\" → 401; alg \"HS512\" → 401; alg \"none\", empty signature → 401; alg \"None\" (case trick) → 401; jku header pointing to attacker keys → 401; kid path traversal (../../dev/null, empty key) → 401; B's real signature with A's id swapped in → 401; B's real token with signature removed → 401; token in a query string instead of the header → 401"
+    },
+    {
+      "id": "AT-03",
+      "category": "Injection and type confusion",
+      "attack": "12 NoSQL/SQL-style, operator, type-confusion, path and prototype-pollution payloads",
+      "expected": "all rejected by validation (400/401/404/422); no 500; pollution does not give admin",
+      "actual": "13/13 as expected; 500s: 0",
+      "pass": true,
+      "note": "login with {\"$ne\": null} as e-mail and password → 400; login with e-mail \"a@b.c' OR 1=1 --\" → 401; bucket with monthlyLimit as an object → 400; bucket with monthlyLimit as an array → 400; bucket with monthlyLimit 1e309 (Infinity) → 400; bucket with monthlyLimit -500 → 400; expense with amount \"100; DROP TABLE\" → 400; expense with amount 0.000001 → 400; expense dated 9999-12-31 → 400; bucket id \"../../USER#<A>\" in the path → 404; month query \"2026-11' OR '1'='1\" → 400; __proto__ pollution in body → 400; B on admin endpoint afterwards → 403"
+    },
+    {
+      "id": "AT-04",
+      "category": "Mass assignment",
+      "attack": "B creates a bucket with pk/sk/userId/id/status of victim A in the body; A tries to move a transaction to B by PATCHing userId/pk",
+      "expected": "extra fields ignored or refused: nothing planted in A's account, the transaction stays A's",
+      "actual": "bucket refused 400; planted in A: no; PATCH → 400, still A's: yes",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-05",
+      "category": "Race condition (business logic)",
+      "attack": "10 expenses of 30 sent at the same moment to a bucket with a hard limit of 100",
+      "expected": "at most 3 accepted (90), total spent never above 100",
+      "actual": "3 accepted, spent 90 of 100",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-06",
+      "category": "Race condition (brute force)",
+      "attack": "20 wrong passwords sent in parallel to one account (lockout is after 5)",
+      "expected": "at most 5 guesses checked, then locked (429); the right password is then refused while locked",
+      "actual": "5 guesses checked (401), 5 got 429; right password afterwards → 429",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-07",
+      "category": "User enumeration",
+      "attack": "Compare login answers and timing for a real and a made-up e-mail; register an e-mail that exists",
+      "expected": "login: same status, message and similar timing; register: reveals the e-mail exists (accepted risk, see note)",
+      "actual": "login same answer: yes (401); avg time 62 ms vs 65 ms; register existing → 409 EMAIL_TAKEN",
+      "pass": true,
+      "note": "Register says EMAIL_TAKEN, so sign-up can confirm an account exists. Most sites accept this for usability; the mitigations are the API rate limit and the CloudWatch FailedLogins alarm."
+    },
+    {
+      "id": "AT-07b",
+      "category": "User enumeration",
+      "attack": "Register with an e-mail that already exists",
+      "expected": "documented low-risk finding",
+      "actual": "409 EMAIL_TAKEN",
+      "pass": null,
+      "note": "finding (low): accepted risk"
+    },
+    {
+      "id": "AT-08",
+      "category": "CORS",
+      "attack": "Browser pre-flight and GET from https://evil.example, compared with the real frontend origin",
+      "expected": "no Access-Control-Allow-Origin for evil.example (the browser blocks it); the frontend origin is allowed",
+      "actual": "evil.example → no ACAO header; frontend → http://localhost:4566",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-09",
+      "category": "Information leakage",
+      "attack": "Malformed JSON, unknown and traversal paths, TRACE, null byte",
+      "expected": "short JSON errors with no stack trace, file path or library name; no X-Powered-By; security headers present",
+      "actual": "0 responses leaked internals; X-Powered-By absent; nosniff + HSTS present; statuses 400, 400, 404, refused by client, 400",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-10",
+      "category": "Cross-site scripting (stored)",
+      "attack": "Bucket named with an <img onerror> script payload, then check how the frontend would show it",
+      "expected": "API stores it as plain text or rejects it; frontend writes names with textContent/escaping; CSP present",
+      "actual": "API → 201 (stored as text: true); CSP meta tag: yes; unescaped HTML sinks in the frontend scripts: 0",
+      "pass": true,
+      "note": "unescaped sinks = lines that assign innerHTML without an escape helper"
+    },
+    {
+      "id": "AT-11",
+      "category": "Denial of service (flooding)",
+      "attack": "60 requests at once from one user (stage limit 10/s, burst 20; Lambda reserved concurrency)",
+      "expected": "excess requests refused with 429 or 503, service still answers afterwards",
+      "actual": "{\"200\":12,\"503\":48} in 10.3 s; afterwards → 200",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "AT-12",
+      "category": "Cloud storage exposure",
+      "attack": "Unsigned (anonymous) list and upload on the receipts, reports and audit-log buckets",
+      "expected": "403 for every request; where the emulator cannot enforce it, the bucket settings that AWS enforces must block all public access",
+      "actual": "anonymous: pb-receipts-244694: list 200, put 200; pb-reports-244694: list 200, put 200; pb-audit-logs-244694: list 200, put not tried (write-once bucket) → Floci does not enforce S3 signatures. Settings: pb-receipts-244694: Block Public Access True/True/True/True, public policy none, public ACL grants none; pb-reports-244694: Block Public Access True/True/True/True, public policy none, public ACL grants none; pb-audit-logs-244694: Block Public Access True/True/True/True, public policy False, public ACL grants none",
+      "pass": true,
+      "note": "PASS by configuration, not by an enforced 403: Floci treats every S3 call as the account owner. On AWS, Block Public Access (all 4 settings) makes unsigned requests fail with 403."
+    }
+  ]
+}

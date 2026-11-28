@@ -1,0 +1,26 @@
+# Dependabot (supply-chain security, ENHANCEMENTS: Dependabot + CodeQL).
+# Every week GitHub checks our npm libraries and GitHub Actions for known vulnerabilities and new
+# versions, and opens a pull request with the fix. Security fixes are opened as soon as an advisory
+# appears (needs "Dependabot security updates" turned on in the repo settings).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /packages/pb-common
+      - /services/auth-service
+      - /services/buckets-service
+      - /services/transactions-service
+      - /services/insights-service
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      aws-sdk:
+        patterns: ["@aws-sdk/*"]
+    labels: [dependencies, security]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]

@@ -1,0 +1,10 @@
+Rotation Lambda pb-jwt-rotator (least privilege: only this one secret)
+  pb-jwt-rotator ready
+Rotation schedule: every 30 days
+  pb/jwt-secret rotation enabled: True	30
+EMERGENCY key replacement
+  1. token signed with the key we pretend leaked: /api/buckets -> 200 (should be 200)
+  2. rotated twice: the leaked key is neither current nor previous
+  3. restarted the 4 service Lambdas (no cached keys left)
+  4. same token now: /api/buckets -> 401 (should be 401)
+RESULT: PASS (everyone must log in again, which is right after a leak)

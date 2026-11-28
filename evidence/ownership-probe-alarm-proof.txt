@@ -1,0 +1,10 @@
+Ownership-probe alarm proof (2026-11-28T15:11:30Z) on Floci, API http://7a84593305.execute-api.localhost.floci.io:4566
+1. Alarm before: OK
+2. Attacker B sent 8 requests for the victim bucket and guessed transaction ids: 404, 404, 404, 404, 404, 404, 404, 404
+   the victim bucket unchanged: monthlyLimit 900
+3. Alarm after 150 s: ALARM (Threshold Crossed: 1 datapoint(s) breaching the threshold.)
+4. Alarm notification delivered on pb-ops-alarms: yes
+5. Who did it (the log line an on-call person reads; user id only, no e-mail):
+{"ts":"2026-11-28T15:11:55.646Z","level":"warn","service":"buckets","event":"BUCKET_NOT_FOUND_OR_NOT_OWNED","requestId":"d6974277-4ea2-4e5d-b697-ba2e644380ca","userId":"91b8c309-b4f1-41ac-a415-2b763af7abb2","bucketId":"e981bc85f1e7463db44c"}
+6. Test users deleted: 200, 200
+RESULT: PASS

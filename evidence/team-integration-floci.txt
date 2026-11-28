@@ -1,0 +1,22 @@
+Team integration test on Floci 2.5.0, 27 Nov 2026 (main = Salma #1 + Omar #2 + Saged #3)
+Team tests on the merged code: 50/50 pass. Smoke test after deploy: 11 passed, 0 failed.
+
+KMS (Salma's report: the deploy reset her bucket and Lambda settings)
+  before:          receipts bucket + PBTransactions on alias/pb-data-key, RECEIPTS_KMS_KEY missing
+  after deploy 1:  receipts bucket + PBTransactions on alias/pb-transactions (Salma's key 74070103...),
+                   RECEIPTS_KMS_KEY set; PBBuckets stays on alias/pb-data-key (d806b7be...)
+  deploy 2 (re-run): receipts bucket still on Salma's key (no reset to AES256); Transactions Lambda
+                   updated by the deploy at 16:52:21 UTC and RECEIPTS_KMS_KEY is still set (kept by the
+                   deploy itself: her script had not run again yet)
+  Salma's services/transactions-service/infra/setup-*.sh now run automatically in the deploy.
+
+Body limit (Salma's ST-11), POST /api/buckets on the deployed Lambda
+  30 KB JSON body  -> 413 PAYLOAD_TOO_LARGE        (before the fix: reached the validator, 400)
+  text/plain body  -> 415 UNSUPPORTED_MEDIA_TYPE   (before the fix: 400)
+  normal JSON      -> 201
+
+Download my data / delete my account (Omar's 5f, Auth calls Insights, Transactions, Buckets)
+  GET /api/auth/me/export            -> 200, sections: account, insights, transactions, buckets (bucket "Food")
+  DELETE /api/auth/me wrong password -> 422 INVALID_CONFIRMATION
+  DELETE /api/auth/me                -> 200 deleted: insights 0 reports, transactions 0, buckets 1
+  login after delete                 -> 401

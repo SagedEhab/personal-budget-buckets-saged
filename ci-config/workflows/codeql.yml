@@ -1,0 +1,28 @@
+# CodeQL code scanning (ENHANCEMENTS: Dependabot + CodeQL).
+# GitHub's analyser reads our JavaScript and looks for security bugs: injection, path traversal,
+# unsafe regular expressions (ReDoS), missing validation, hard-coded secrets. Findings appear under
+# Security > Code scanning and on pull requests. Free for public repositories.
+name: CodeQL
+on:
+  push:
+    branches: [main, saged, salma, omar]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 4 * * 1'   # every Monday 04:00 UTC, catches new rules on unchanged code
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

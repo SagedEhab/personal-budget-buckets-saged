@@ -1,0 +1,15 @@
+SNS topic pb-ops-alarms: allow CloudWatch alarms and EventBridge (this account only) to publish
+EventBridge rules -> SNS pb-ops-alarms
+  pb-guardduty-finding: GuardDuty finding, severity medium or higher
+  pb-securityhub-critical: Security Hub finding HIGH or CRITICAL
+  pb-root-login: Console sign-in as the root user
+  pb-iam-change: IAM users, roles, policies or keys changed
+  pb-audit-tamper: Attempt to switch off logging, the key, Config or GuardDuty
+Proof 1: each rule matches a realistic sample event (EventBridge test-event-pattern)
+  pb-guardduty-finding: dangerous event matched=True, harmless event matched=False -> PASS
+  pb-securityhub-critical: dangerous event matched=True, harmless event matched=False -> PASS
+  pb-root-login: dangerous event matched=True, harmless event matched=False -> PASS
+  pb-iam-change: dangerous event matched=True, harmless event matched=False -> PASS
+  pb-audit-tamper: dangerous event matched=True, harmless event matched=False -> PASS
+Proof 2: an alert published to the topic is delivered (test queue subscribed in place of e-mail)
+  alert delivered through pb-ops-alarms (PASS)

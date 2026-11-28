@@ -1,0 +1,77 @@
+1/8 DynamoDB tables (pk + sk, on-demand, encrypted)
+  PBUsers
+  PBBuckets
+  PBTransactions
+  PBReports
+2/8 Secrets Manager: JWT signing key (random, never printed, never in git)
+3/8 SNS topic for budget alerts
+4/8 Private S3 buckets for receipts and reports (Block Public Access + encryption)
+{
+    "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"
+}
+5/8 One least-privilege IAM role per Lambda
+  pb-auth-role
+  pb-buckets-role
+  pb-transactions-role
+  pb-insights-role
+6/8 Lambda functions (zip without .env)
+
+up to date in 926ms
+Created auth-service/lambda.zip (4466 files, 4.2 MB). .env is NOT included.
+  pb-auth-api (max 10 copies at once)
+
+up to date in 458ms
+Created buckets-service/lambda.zip (4690 files, 4.5 MB). .env is NOT included.
+  pb-buckets-api (max 10 copies at once)
+
+up to date in 399ms
+Created transactions-service/lambda.zip (5221 files, 5.2 MB). .env is NOT included.
+  pb-transactions-api (max 10 copies at once)
+
+up to date in 452ms
+Created insights-service/lambda.zip (5221 files, 5.2 MB). .env is NOT included.
+  pb-insights-api (max 5 copies at once)
+7/8 API Gateway HTTP API: one integration per service, stage throttling
+  stage throttling: 10 requests/s, burst 20 (SCALE=laptop)
+Tags: Project / Owner / Environment on every resource (governance and cost tracking, Lecture 8)
+  check with: aws resourcegroupstaggingapi get-resources --tag-filters Key=Project,Values=personal-budget-buckets
+8/8 Website on S3 + monitoring
+Monitoring configured.
+Security and recovery: backups, audit and threat detection, firewall
+Point-in-time recovery on every table
+  PBUsers: PITR ENABLED
+  PBBuckets: PITR ENABLED
+  PBTransactions: PITR ENABLED
+  PBReports: PITR ENABLED
+AWS Backup: vault, role and daily plan (35-day retention)
+  vault pb-backup-vault
+  role pb-backup-role
+  plan pb-daily-backups (455e1702-2066-4c8c-8ea2-84ac3ffb48e0): every day 03:00 UTC, kept 35 days, all resources tagged Project=personal-budget-buckets
+Backups configured. Run bash infra/restore-drill.sh to prove a restore works.
+Audit log bucket (private, encrypted, versioned)
+  s3://pb-audit-logs-244694
+CloudTrail: all regions, management events, log-file validation
+  pb-trail logging: True
+GuardDuty: threat detection
+  detector 0c7b890b8fcb4731940d41d475141a4f: ENABLED
+Security Hub: findings in one place, AWS Foundational Security Best Practices
+  hub: arn:aws:securityhub:us-east-1:000000000000:hub/default
+AWS Config: record every resource, check it against rules
+  rule pb-s3-bucket-public-read-prohibited
+  rule pb-s3-bucket-server-side-encryption-enabled
+  rule pb-dynamodb-pitr-enabled
+  rule pb-cloud-trail-enabled
+  rule pb-lambda-function-public-access-prohibited
+  recorder: True
+Audit and threat detection configured.
+WAF web ACL pb-web-acl (scope REGIONAL): 300 requests per IP per 5 minutes + 3 AWS managed rule groups
+  rule 0	rate-limit-per-ip	300
+  rule 1	AWSManagedRulesCommonRuleSet	AWS managed rule group
+  rule 2	AWSManagedRulesKnownBadInputsRuleSet	AWS managed rule group
+  rule 3	AWSManagedRulesAmazonIpReputationList	AWS managed rule group
+  Not attached on Floci (no CloudFront). On AWS: attach to the CloudFront distribution with
+  aws cloudfront update-distribution (WebACLId = the ACL ARN).
+
+API:     http://7a84593305.execute-api.localhost.floci.io:4566/api/auth/health
+Website: http://localhost:4566/pb-web/index.html
+Next:    seed the admin (README), then bash infra/check-floci.sh

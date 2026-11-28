@@ -1,0 +1,25 @@
+{
+  "suite": "attack-races",
+  "ranAt": "2026-11-28T15:11:18.682Z",
+  "node": "v24.15.0",
+  "rows": [
+    {
+      "id": "AT-06",
+      "area": "Brute force (race)",
+      "scenario": "20 wrong passwords in parallel, then the right one",
+      "expected": "at most 5 checked (401), rest 429; right password refused while locked (429)",
+      "actual": "5 checked, 15 got 429; right password → 429",
+      "pass": true,
+      "evidence": ""
+    },
+    {
+      "id": "AT-05",
+      "area": "Business logic (race)",
+      "scenario": "10 expenses of 30 in parallel on a hard limit of 100",
+      "expected": "spent never above 100",
+      "actual": "3 accepted, spent 90",
+      "pass": true,
+      "evidence": ""
+    }
+  ]
+}

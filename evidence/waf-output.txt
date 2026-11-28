@@ -1,0 +1,7 @@
+WAF web ACL pb-web-acl (scope REGIONAL): 300 requests per IP per 5 minutes + 3 AWS managed rule groups
+  rule 0	rate-limit-per-ip	300
+  rule 1	AWSManagedRulesCommonRuleSet	AWS managed rule group
+  rule 2	AWSManagedRulesKnownBadInputsRuleSet	AWS managed rule group
+  rule 3	AWSManagedRulesAmazonIpReputationList	AWS managed rule group
+  Not attached on Floci (no CloudFront). On AWS: attach to the CloudFront distribution with
+  aws cloudfront update-distribution (WebACLId = the ACL ARN).
